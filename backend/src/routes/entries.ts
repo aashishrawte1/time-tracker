@@ -1,5 +1,6 @@
 import { Router, Response } from "express";
 import { TimeEntry } from "../models/TimeEntry";
+import { Project } from "../models/Project";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 
 const router = Router();
@@ -23,6 +24,44 @@ router.get("/", async (req: AuthRequest, res: Response) => {
     .populate("projectId", "name color");
 
   res.json({ entries });
+});
+
+router.post("/", async (req: AuthRequest, res: Response) => {
+  const { projectId, startTime, endTime, note } = req.body as {
+    projectId?: string;
+    startTime?: string;
+    endTime?: string;
+    note?: string;
+  };
+
+  if (!projectId || !startTime || !endTime) {
+    return res.status(400).json({ error: "projectId, startTime and endTime are required" });
+  }
+
+  const project = await Project.findOne({ _id: projectId, userId: req.userId });
+  if (!project) {
+    return res.status(404).json({ error: "Project not found" });
+  }
+
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return res.status(400).json({ error: "Invalid startTime or endTime" });
+  }
+  if (end <= start) {
+    return res.status(400).json({ error: "endTime must be after startTime" });
+  }
+
+  const entry = await TimeEntry.create({
+    userId: req.userId,
+    projectId: project._id,
+    startTime: start,
+    endTime: end,
+    durationSeconds: Math.round((end.getTime() - start.getTime()) / 1000),
+    note: note ?? "",
+  });
+
+  res.status(201).json({ entry });
 });
 
 router.put("/:id", async (req: AuthRequest, res: Response) => {

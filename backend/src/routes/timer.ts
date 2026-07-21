@@ -7,8 +7,8 @@ const router = Router();
 router.use(requireAuth);
 
 router.get("/active", async (req: AuthRequest, res: Response) => {
-  const active = await TimeEntry.findOne({ userId: req.userId, endTime: null }).populate("projectId", "name color");
-  res.json({ entry: active });
+  const active = await TimeEntry.find({ userId: req.userId, endTime: null }).populate("projectId", "name color");
+  res.json({ entries: active });
 });
 
 router.post("/start", async (req: AuthRequest, res: Response) => {
@@ -22,9 +22,9 @@ router.post("/start", async (req: AuthRequest, res: Response) => {
     return res.status(404).json({ error: "Project not found" });
   }
 
-  const alreadyActive = await TimeEntry.findOne({ userId: req.userId, endTime: null });
+  const alreadyActive = await TimeEntry.findOne({ userId: req.userId, projectId: project._id, endTime: null });
   if (alreadyActive) {
-    return res.status(409).json({ error: "A timer is already running. Stop it before starting a new one." });
+    return res.status(409).json({ error: "A timer is already running for this project." });
   }
 
   const entry = await TimeEntry.create({
@@ -39,12 +39,15 @@ router.post("/start", async (req: AuthRequest, res: Response) => {
 });
 
 router.post("/stop", async (req: AuthRequest, res: Response) => {
-  const active = await TimeEntry.findOne({ userId: req.userId, endTime: null });
+  const { entryId, note } = req.body as { entryId?: string; note?: string };
+
+  const filter: Record<string, unknown> = { userId: req.userId, endTime: null };
+  if (entryId) filter._id = entryId;
+
+  const active = entryId ? await TimeEntry.findOne(filter) : await TimeEntry.findOne(filter).sort({ startTime: -1 });
   if (!active) {
     return res.status(409).json({ error: "No timer is currently running" });
   }
-
-  const { note } = req.body as { note?: string };
 
   const endTime = new Date();
   active.endTime = endTime;

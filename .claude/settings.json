@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(npx vite *)",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(lsof -ti:4000 -sTCP:LISTEN)",
+      "Bash(xargs -r kill)",
+      "Bash(lsof -ti:5154 -sTCP:LISTEN)",
+      "Bash(nohup ./dev.sh)",
+      "Bash(timeout 40 bash -c 'until curl -sf http://localhost:4000/api 2>/dev/null || curl -s http://localhost:4000/api >/dev/null; do sleep 1; done')",
+      "Bash(timeout 40 bash -c 'until curl -sf http://localhost:5154 >/dev/null; do sleep 1; done')",
+      "Bash(python3 -)",
+      "Bash(node -e \"console.log\\(require.resolve\\('playwright'\\)\\)\")",
+      "Read(//Users/aashishrawte/.cache/**)",
+      "Bash(ls ~/Library/Caches/ms-playwright 2>/dev/null || echo \"none mac cache\")",
+      "Read(//Users/aashishrawte/Library/Caches/ms-playwright/**)",
+      "Bash(npx -y -p playwright node shot.mjs)",
+      "Bash(npm init *)",
+      "Bash(npm install *)",
+      "Bash(node shot.mjs)",
+      "Bash(curl -sf http://localhost:5154)",
+      "Bash(curl -s http://localhost:4000)",
+      "Bash(break)",
+      "Bash(node shot3.mjs)"
+    ]
+  }
+}
