@@ -1,8 +1,16 @@
 import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { User } from "../models/User";
 import { signToken } from "../utils/jwt";
+import { sendPasswordResetEmail } from "../utils/email";
 import { requireAuth, AuthRequest } from "../middleware/auth";
+
+const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
+
+function hashToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
 
 const router = Router();
 
@@ -53,6 +61,63 @@ router.post("/login", async (req: Request, res: Response) => {
     token,
     user: { id: user._id, email: user.email, name: user.name },
   });
+});
+
+router.post("/forgot-password", async (req: Request, res: Response) => {
+  const { email } = req.body as { email?: string };
+  const genericResponse = { message: "If an account exists for that email, we've sent a password reset link." };
+
+  if (!email) {
+    return res.status(400).json({ error: "email is required" });
+  }
+
+  const user = await User.findOne({ email: email.toLowerCase().trim() });
+  if (!user) {
+    return res.json(genericResponse);
+  }
+
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  user.resetPasswordTokenHash = hashToken(rawToken);
+  user.resetPasswordExpires = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+  await user.save();
+
+  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+  const resetUrl = `${frontendUrl.replace(/\/$/, "")}/reset-password?token=${rawToken}`;
+
+  try {
+    await sendPasswordResetEmail(user.email, resetUrl);
+  } catch (err) {
+    console.error("Failed to send password reset email", err);
+  }
+
+  res.json(genericResponse);
+});
+
+router.post("/reset-password", async (req: Request, res: Response) => {
+  const { token, password } = req.body as { token?: string; password?: string };
+
+  if (!token || !password) {
+    return res.status(400).json({ error: "token and password are required" });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: "Password must be at least 8 characters" });
+  }
+
+  const user = await User.findOne({
+    resetPasswordTokenHash: hashToken(token),
+    resetPasswordExpires: { $gt: new Date() },
+  }).select("+resetPasswordTokenHash +resetPasswordExpires");
+
+  if (!user) {
+    return res.status(400).json({ error: "This reset link is invalid or has expired" });
+  }
+
+  user.passwordHash = await bcrypt.hash(password, 10);
+  user.resetPasswordTokenHash = null;
+  user.resetPasswordExpires = null;
+  await user.save();
+
+  res.json({ message: "Your password has been reset. You can now log in." });
 });
 
 router.get("/me", requireAuth, async (req: AuthRequest, res: Response) => {
