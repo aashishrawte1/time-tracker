@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import "express-async-errors";
 import cors from "cors";
+import mongoose from "mongoose";
 import { connectDB } from "./config/db";
 import { errorHandler, notFound } from "./middleware/errorHandler";
 import authRoutes from "./routes/auth";
@@ -43,7 +44,40 @@ app.use(errorHandler);
 
 connectDB(MONGODB_URI)
   .then(() => {
-    app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+    const server = app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+
+    // Active timer entries are already durable in MongoDB the moment they're
+    // created (see routes/timer.ts) and their duration is always derived from
+    // stored timestamps, never an in-memory counter — so a crash here can't
+    // corrupt or lose a running timer. What these handlers protect is a clean,
+    // fast restart: finish in-flight requests, close the DB connection
+    // properly, and always exit via the same path instead of leaving the
+    // process in a half-dead state that silently drops new requests.
+    let shuttingDown = false;
+    function shutdown(reason: string, exitCode: number) {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      console.error(`Shutting down (${reason})`);
+      server.close(() => {
+        mongoose.connection
+          .close()
+          .catch(() => undefined)
+          .finally(() => process.exit(exitCode));
+      });
+      // Don't hang forever waiting for connections to drain.
+      setTimeout(() => process.exit(exitCode), 10_000).unref();
+    }
+
+    process.on("SIGTERM", () => shutdown("SIGTERM", 0));
+    process.on("SIGINT", () => shutdown("SIGINT", 0));
+    process.on("uncaughtException", (err) => {
+      console.error("Uncaught exception", err);
+      shutdown("uncaughtException", 1);
+    });
+    process.on("unhandledRejection", (err) => {
+      console.error("Unhandled rejection", err);
+      shutdown("unhandledRejection", 1);
+    });
   })
   .catch((err) => {
     console.error("Failed to connect to MongoDB", err);

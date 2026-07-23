@@ -1,5 +1,7 @@
 import { Schema, model, Document, Types } from "mongoose";
 
+export type TimeEntrySource = "manual" | "timer";
+
 export interface ITimeEntry extends Document {
   _id: Types.ObjectId;
   userId: Types.ObjectId;
@@ -8,6 +10,7 @@ export interface ITimeEntry extends Document {
   endTime: Date | null;
   durationSeconds: number;
   note: string;
+  source: TimeEntrySource;
   createdAt: Date;
 }
 
@@ -18,6 +21,7 @@ const timeEntrySchema = new Schema<ITimeEntry>({
   endTime: { type: Date, default: null },
   durationSeconds: { type: Number, default: 0 },
   note: { type: String, default: "", trim: true },
+  source: { type: String, enum: ["manual", "timer"], default: "manual" },
   createdAt: { type: Date, default: Date.now },
 });
 

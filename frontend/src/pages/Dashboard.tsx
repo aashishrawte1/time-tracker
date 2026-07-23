@@ -17,6 +17,42 @@ function projectIdOf(entry: TimeEntry): string {
   return typeof entry.projectId === "object" ? entry.projectId._id : entry.projectId;
 }
 
+// If the tab or server dies mid-request, a Stop click must not silently
+// vanish. The intended stop moment is captured up front and stashed here
+// *before* the network call, so a page reload (or the retry loop below)
+// can still finish the stop with the original timestamp — never "now".
+const PENDING_STOPS_KEY = "time-tracker-pending-stops";
+
+interface PendingStop {
+  entryId: string;
+  endTime: string;
+}
+
+function readPendingStops(): PendingStop[] {
+  try {
+    const raw = localStorage.getItem(PENDING_STOPS_KEY);
+    return raw ? (JSON.parse(raw) as PendingStop[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePendingStops(stops: PendingStop[]): void {
+  try {
+    localStorage.setItem(PENDING_STOPS_KEY, JSON.stringify(stops));
+  } catch {
+    // localStorage unavailable (e.g. private mode) — the request itself still proceeds.
+  }
+}
+
+function addPendingStop(stop: PendingStop): void {
+  writePendingStops([...readPendingStops().filter((s) => s.entryId !== stop.entryId), stop]);
+}
+
+function removePendingStop(entryId: string): void {
+  writePendingStops(readPendingStops().filter((s) => s.entryId !== entryId));
+}
+
 type DisplayMode = "digital" | "analog";
 
 function handRotation(elapsedSeconds: number): { hourDeg: number; minuteDeg: number; secondDeg: number } {
@@ -102,12 +138,14 @@ function ActiveTimerCard({
   projects,
   now,
   busy,
+  retrying,
   onStop,
 }: {
   entry: TimeEntry;
   projects: Project[];
   now: number;
   busy: boolean;
+  retrying: boolean;
   onStop: (entryId: string) => void;
 }) {
   const [mode, setMode] = useState<DisplayMode>("digital");
@@ -115,7 +153,7 @@ function ActiveTimerCard({
   const elapsedSeconds = Math.max(0, Math.floor((now - new Date(entry.startTime).getTime()) / 1000));
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-6 text-center shadow-card dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-card dark:border-slate-800 dark:bg-slate-900">
       <div className="mb-2 flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400">
         <span className="relative flex h-2 w-2">
           <span
@@ -126,6 +164,12 @@ function ActiveTimerCard({
         </span>
         Tracking <span className="font-medium text-slate-700 dark:text-slate-200">{label.name}</span>
       </div>
+
+      {retrying && (
+        <div className="mb-2 text-xs font-medium text-amber-600 dark:text-amber-400">
+          Couldn't reach the server — retrying to save your stop time…
+        </div>
+      )}
 
       {mode === "digital" ? (
         <div className="mb-6 font-mono text-5xl font-semibold tabular-nums text-slate-900 dark:text-white">
@@ -143,17 +187,17 @@ function ActiveTimerCard({
       <div className="flex items-center justify-center gap-2">
         <button
           onClick={() => setMode(mode === "digital" ? "analog" : "digital")}
-          className="flex items-center gap-1.5 rounded-md border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          className="flex items-center gap-1.5 rounded-full border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
         >
           <GaugeIcon className="h-3.5 w-3.5" />
           {mode === "digital" ? "Analog view" : "Digital view"}
         </button>
         <button
           onClick={() => onStop(entry._id)}
-          disabled={busy}
-          className="rounded-md bg-red-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-red-700 disabled:opacity-50"
+          disabled={busy || retrying}
+          className="rounded-full bg-red-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-red-700 disabled:opacity-50"
         >
-          Stop
+          {retrying ? "Retrying..." : "Stop"}
         </button>
       </div>
     </div>
@@ -215,7 +259,7 @@ function ManualEntryForm({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-500 transition-colors hover:border-indigo-300 hover:bg-slate-50 hover:text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-indigo-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+        className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-500 transition-colors hover:border-indigo-300 hover:bg-slate-50 hover:text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-indigo-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
       >
         <PlusIcon className="h-4 w-4" />
         Log time manually
@@ -226,7 +270,7 @@ function ManualEntryForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-xl border border-slate-200 bg-white p-5 shadow-card dark:border-slate-800 dark:bg-slate-900"
+      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card dark:border-slate-800 dark:bg-slate-900"
     >
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Log time manually</h2>
@@ -240,7 +284,7 @@ function ManualEntryForm({
       </div>
 
       {error && (
-        <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
+        <div className="mb-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
           {error}
         </div>
       )}
@@ -251,7 +295,7 @@ function ManualEntryForm({
           <select
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
-            className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           >
             {projects.map((p) => (
               <option key={p._id} value={p._id}>
@@ -267,7 +311,7 @@ function ManualEntryForm({
             required
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
         <div>
@@ -277,7 +321,7 @@ function ManualEntryForm({
             required
             value={startTime}
             onChange={(e) => setStartTime(e.target.value)}
-            className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
         <div>
@@ -287,7 +331,7 @@ function ManualEntryForm({
             required
             value={endTime}
             onChange={(e) => setEndTime(e.target.value)}
-            className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
       </div>
@@ -298,14 +342,14 @@ function ManualEntryForm({
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="What did you work on?"
-          className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         />
       </div>
 
       <button
         type="submit"
         disabled={submitting || !projectId}
-        className="mt-4 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-50"
+        className="mt-4 rounded-full bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-50"
       >
         {submitting ? "Saving..." : "Save entry"}
       </button>
@@ -354,7 +398,7 @@ function RecentEntriesDrawer({
           <button
             onClick={onClose}
             aria-label="Close"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
           >
             <XIcon className="h-4 w-4" />
           </button>
@@ -413,6 +457,9 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [entriesOpen, setEntriesOpen] = useState(false);
+  const [pendingStopIds, setPendingStopIds] = useState<Set<string>>(
+    () => new Set(readPendingStops().map((s) => s.entryId)),
+  );
 
   async function loadAll() {
     const [projectsRes, activeRes, entriesRes] = await Promise.all([
@@ -430,6 +477,7 @@ export function Dashboard() {
 
   useEffect(() => {
     loadAll()
+      .then(() => flushPendingStops())
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -440,6 +488,25 @@ export function Dashboard() {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, [activeEntries.length]);
+
+  // A stop that failed to save (dead server, dropped connection) keeps
+  // retrying on its own — whenever the browser comes back online, and as a
+  // periodic fallback — so the user never has to notice or intervene.
+  useEffect(() => {
+    function onOnline() {
+      flushPendingStops();
+    }
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (pendingStopIds.size === 0) return;
+    const id = setInterval(() => flushPendingStops(), 15000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingStopIds.size]);
 
   const availableProjects = useMemo(() => {
     const runningProjectIds = new Set(activeEntries.map(projectIdOf));
@@ -472,18 +539,74 @@ export function Dashboard() {
     }
   }
 
-  async function handleStop(entryId: string) {
-    setError(null);
-    setBusy(true);
+  async function attemptStop(entryId: string, endTime: string): Promise<boolean> {
     try {
-      await api.post("/timer/stop", { entryId });
-      setActiveEntries((prev) => prev.filter((e) => e._id !== entryId));
+      await api.post("/timer/stop", { entryId, endTime });
+      removePendingStop(entryId);
+      return true;
+    } catch (err) {
+      // A 409 here means the entry is no longer running — most likely this
+      // exact stop already landed on an earlier attempt and only the
+      // response was lost. Treat it as resolved rather than retrying forever.
+      if (err instanceof ApiError && err.status === 409) {
+        removePendingStop(entryId);
+        return true;
+      }
+      return false;
+    }
+  }
+
+  async function refreshRecentEntries() {
+    try {
       const entriesRes = await api.get<{ entries: TimeEntry[] }>("/entries?limit=10");
       setRecentEntries(entriesRes.entries);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to stop timer");
-    } finally {
-      setBusy(false);
+    } catch {
+      // Non-critical: the stop itself already succeeded.
+    }
+  }
+
+  async function flushPendingStops() {
+    const stops = readPendingStops();
+    if (stops.length === 0) return;
+
+    const resolvedIds: string[] = [];
+    for (const stop of stops) {
+      if (await attemptStop(stop.entryId, stop.endTime)) resolvedIds.push(stop.entryId);
+    }
+
+    if (resolvedIds.length > 0) {
+      setPendingStopIds((prev) => {
+        const next = new Set(prev);
+        resolvedIds.forEach((id) => next.delete(id));
+        return next;
+      });
+      setActiveEntries((prev) => prev.filter((e) => !resolvedIds.includes(e._id)));
+      await refreshRecentEntries();
+    }
+  }
+
+  async function handleStop(entryId: string) {
+    setError(null);
+    // Capture the stop moment before the network call and persist it
+    // immediately, so a crash or dropped connection right after this click
+    // can't lose the real stop time — only how long it takes to actually save.
+    const endTime = new Date().toISOString();
+    addPendingStop({ entryId, endTime });
+    setPendingStopIds((prev) => new Set(prev).add(entryId));
+    setBusy(true);
+    const ok = await attemptStop(entryId, endTime);
+    setBusy(false);
+
+    if (ok) {
+      setPendingStopIds((prev) => {
+        const next = new Set(prev);
+        next.delete(entryId);
+        return next;
+      });
+      setActiveEntries((prev) => prev.filter((e) => e._id !== entryId));
+      await refreshRecentEntries();
+    } else {
+      setError("Couldn't reach the server. Your stop time was saved on this device and will keep retrying.");
     }
   }
 
@@ -499,12 +622,12 @@ export function Dashboard() {
 
   if (projects.length === 0) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-6 text-center shadow-card dark:border-slate-800 dark:bg-slate-900">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-card dark:border-slate-800 dark:bg-slate-900">
         <FolderIcon className="mx-auto mb-3 h-8 w-8 text-slate-300 dark:text-slate-700" />
         <p className="mb-4 text-slate-600 dark:text-slate-300">You don't have any projects yet.</p>
         <Link
           to="/projects"
-          className="inline-block rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700"
+          className="inline-block rounded-full bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700"
         >
           Create your first project
         </Link>
@@ -515,7 +638,7 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
           {error}
         </div>
       )}
@@ -529,6 +652,7 @@ export function Dashboard() {
               projects={projects}
               now={now}
               busy={busy}
+              retrying={pendingStopIds.has(entry._id)}
               onStop={handleStop}
             />
           ))}
@@ -536,7 +660,7 @@ export function Dashboard() {
       )}
 
       {availableProjects.length > 0 && (
-        <div className="mx-auto max-w-md rounded-xl border border-slate-200 bg-white p-6 text-center shadow-card dark:border-slate-800 dark:bg-slate-900">
+        <div className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-card dark:border-slate-800 dark:bg-slate-900">
           <div className="mb-4 flex items-center justify-center gap-2 font-mono text-5xl font-semibold tabular-nums text-slate-200 dark:text-slate-700">
             <ClockIcon className="h-8 w-8" />
             00:00:00
@@ -545,7 +669,7 @@ export function Dashboard() {
             <select
               value={selectedProjectId}
               onChange={(e) => setSelectedProjectId(e.target.value)}
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             >
               {availableProjects.map((p) => (
                 <option key={p._id} value={p._id}>
@@ -557,7 +681,7 @@ export function Dashboard() {
           <button
             onClick={handleStart}
             disabled={busy}
-            className="rounded-md bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-50"
+            className="rounded-full bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-50"
           >
             Start{activeEntries.length > 0 ? " another" : ""}
           </button>
@@ -570,7 +694,7 @@ export function Dashboard() {
 
       <button
         onClick={() => setEntriesOpen(true)}
-        className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-left shadow-card transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800/50"
+        className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-card transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800/50"
       >
         <span className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
           <HistoryIcon className="h-4 w-4 text-slate-400 dark:text-slate-500" />

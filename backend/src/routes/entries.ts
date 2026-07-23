@@ -59,6 +59,7 @@ router.post("/", async (req: AuthRequest, res: Response) => {
     endTime: end,
     durationSeconds: Math.round((end.getTime() - start.getTime()) / 1000),
     note: note ?? "",
+    source: "manual",
   });
 
   res.status(201).json({ entry });

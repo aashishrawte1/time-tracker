@@ -26,6 +26,7 @@ export interface TimeEntry {
   endTime: string | null;
   durationSeconds: number;
   note: string;
+  source: "manual" | "timer";
 }
 
 export interface SummaryProjectRow {

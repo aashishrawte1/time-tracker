@@ -33,13 +33,18 @@ router.post("/start", async (req: AuthRequest, res: Response) => {
     startTime: new Date(),
     endTime: null,
     durationSeconds: 0,
+    source: "timer",
   });
 
   res.status(201).json({ entry });
 });
 
 router.post("/stop", async (req: AuthRequest, res: Response) => {
-  const { entryId, note } = req.body as { entryId?: string; note?: string };
+  const { entryId, note, endTime: requestedEndTime } = req.body as {
+    entryId?: string;
+    note?: string;
+    endTime?: string;
+  };
 
   const filter: Record<string, unknown> = { userId: req.userId, endTime: null };
   if (entryId) filter._id = entryId;
@@ -49,7 +54,10 @@ router.post("/stop", async (req: AuthRequest, res: Response) => {
     return res.status(409).json({ error: "No timer is currently running" });
   }
 
-  const endTime = new Date();
+  // Prefer the client-captured stop moment (e.g. from a retried request after a
+  // crash/reconnect) over "now", so a delayed retry doesn't inflate the duration.
+  const parsedEndTime = requestedEndTime ? new Date(requestedEndTime) : null;
+  const endTime = parsedEndTime && !isNaN(parsedEndTime.getTime()) ? parsedEndTime : new Date();
   active.endTime = endTime;
   active.durationSeconds = Math.max(0, Math.round((endTime.getTime() - active.startTime.getTime()) / 1000));
   if (note !== undefined) active.note = note;
