@@ -38,7 +38,7 @@ router.post("/", async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ error: "projectId, startTime and endTime are required" });
   }
 
-  const project = await Project.findOne({ _id: projectId, userId: req.userId });
+  const project = await Project.findOne({ _id: projectId, organizationId: req.orgId });
   if (!project) {
     return res.status(404).json({ error: "Project not found" });
   }

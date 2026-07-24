@@ -3,6 +3,8 @@ import { api } from "../api/client";
 import type { Summary as SummaryData } from "../types";
 import { formatHoursMinutes } from "../utils/format";
 import { ChevronLeftIcon, ChevronRightIcon } from "../components/icons";
+import { PageHeader } from "../components/PageHeader";
+import { Skeleton } from "../components/Skeleton";
 
 type Range = "daily" | "weekly" | "monthly";
 
@@ -58,13 +60,15 @@ export function Summary() {
 
   return (
     <div className="space-y-6">
+      <PageHeader title="Summary" description="Time tracked across your projects, by day, week, or month." />
+
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex rounded-full border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-900">
           {(Object.keys(RANGE_LABELS) as Range[]).map((r) => (
             <button
               key={r}
               onClick={() => setRange(r)}
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                 range === r
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
@@ -79,21 +83,21 @@ export function Summary() {
           <button
             onClick={() => setDate((d) => shiftDate(d, range, -1))}
             aria-label="Previous"
-            className="flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             <ChevronLeftIcon className="h-3.5 w-3.5" />
             Prev
           </button>
           <button
             onClick={() => setDate(toDateInput(new Date()))}
-            className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             Today
           </button>
           <button
             onClick={() => setDate((d) => shiftDate(d, range, 1))}
             aria-label="Next"
-            className="flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             Next
             <ChevronRightIcon className="h-3.5 w-3.5" />
@@ -108,7 +112,11 @@ export function Summary() {
       )}
 
       {loading || !summary ? (
-        <p className="text-sm text-slate-400 dark:text-slate-500">Loading...</p>
+        <div className="space-y-3">
+          <Skeleton className="h-16" />
+          <Skeleton className="h-10" />
+          <Skeleton className="h-10" />
+        </div>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card dark:border-slate-800 dark:bg-slate-900">
           <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">

@@ -2,6 +2,8 @@ import { FormEvent, useEffect, useState } from "react";
 import { api, ApiError } from "../api/client";
 import type { Project } from "../types";
 import { ArchiveIcon, FolderIcon, PlusIcon, TrashIcon } from "../components/icons";
+import { PageHeader } from "../components/PageHeader";
+import { Skeleton } from "../components/Skeleton";
 
 const COLOR_PALETTE = ["#6366f1", "#ef4444", "#10b981", "#f59e0b", "#3b82f6", "#ec4899", "#8b5cf6", "#14b8a6"];
 
@@ -51,6 +53,7 @@ export function Projects() {
 
   return (
     <div className="space-y-6">
+      <PageHeader title="Projects" description="Create and manage the projects you track time against." />
       <form
         onSubmit={handleCreate}
         className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card dark:border-slate-800 dark:bg-slate-900"
@@ -91,7 +94,7 @@ export function Projects() {
           <button
             type="submit"
             disabled={submitting}
-            className="flex items-center gap-1.5 rounded-full bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-50"
           >
             <PlusIcon className="h-4 w-4" />
             Add project
@@ -104,7 +107,11 @@ export function Projects() {
           Your projects
         </h2>
         {loading ? (
-          <p className="px-4 py-6 text-center text-sm text-slate-400 dark:text-slate-500">Loading...</p>
+          <div className="space-y-3 p-4">
+            <Skeleton className="h-10" />
+            <Skeleton className="h-10" />
+            <Skeleton className="h-10" />
+          </div>
         ) : projects.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
             <FolderIcon className="h-8 w-8 text-slate-300 dark:text-slate-700" />
@@ -135,14 +142,14 @@ export function Projects() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => toggleArchive(project)}
-                    className="flex items-center gap-1 rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                   >
                     <ArchiveIcon className="h-3.5 w-3.5" />
                     {project.archived ? "Unarchive" : "Archive"}
                   </button>
                   <button
                     onClick={() => handleDelete(project)}
-                    className="flex items-center gap-1 rounded-full border border-red-200 px-2.5 py-1 text-xs text-red-600 transition-colors hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
+                    className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-xs text-red-600 transition-colors hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
                   >
                     <TrashIcon className="h-3.5 w-3.5" />
                     Delete

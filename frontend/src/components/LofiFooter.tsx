@@ -137,7 +137,7 @@ export function LofiFooter() {
           onClick={() => setIsExpanded((v) => !v)}
           aria-expanded={isExpanded}
           aria-label={isExpanded ? "Collapse station explorer" : "Explore stations"}
-          className="flex items-center gap-2 rounded-full px-2 py-1 text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+          className="flex items-center gap-2 rounded-lg px-2 py-1 text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
         >
           <MusicIcon className="h-4 w-4" />
           <span className="text-xs font-medium">

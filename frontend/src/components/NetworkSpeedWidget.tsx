@@ -164,7 +164,7 @@ export function NetworkSpeedWidget() {
 
   return (
     <div
-      className="fixed right-4 z-30 flex items-center gap-3 rounded-full border border-slate-200 bg-white/95 px-4 py-2 shadow-card backdrop-blur transition-[bottom] dark:border-slate-800 dark:bg-slate-900/95"
+      className="fixed right-4 z-30 flex items-center gap-3 rounded-lg border border-slate-200 bg-white/95 px-4 py-2 shadow-card backdrop-blur transition-[bottom] dark:border-slate-800 dark:bg-slate-900/95"
       style={{ bottom: "calc(var(--footer-height, 52px) + 12px)" }}
     >
       {status === "error" ? (
@@ -173,7 +173,7 @@ export function NetworkSpeedWidget() {
         <div className="flex items-center gap-3 text-xs">
           {connectionType && (
             <>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+              <span className="rounded-md bg-slate-100 px-2 py-0.5 font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                 {connectionType}
               </span>
               <span className="h-3 w-px bg-slate-200 dark:bg-slate-700" />
@@ -203,7 +203,7 @@ export function NetworkSpeedWidget() {
         onClick={runTest}
         disabled={status === "testing"}
         aria-label="Refresh network speed"
-        className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:opacity-60 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+        className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:opacity-60 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
       >
         <RefreshIcon className={`h-3.5 w-3.5 ${status === "testing" ? "animate-spin" : ""}`} />
       </button>

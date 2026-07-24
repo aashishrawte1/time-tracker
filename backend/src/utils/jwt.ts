@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 
 export interface JwtPayload {
   userId: string;
+  orgId: string;
 }
 
 export function signToken(payload: JwtPayload): string {

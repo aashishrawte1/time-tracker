@@ -10,6 +10,8 @@ import projectRoutes from "./routes/projects";
 import timerRoutes from "./routes/timer";
 import entryRoutes from "./routes/entries";
 import summaryRoutes from "./routes/summary";
+import organizationRoutes from "./routes/organizations";
+import leadRoutes from "./routes/leads";
 
 const PORT = Number(process.env.PORT) || 4000;
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -38,6 +40,8 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/timer", timerRoutes);
 app.use("/api/entries", entryRoutes);
 app.use("/api/summary", summaryRoutes);
+app.use("/api/orgs", organizationRoutes);
+app.use("/api/leads", leadRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

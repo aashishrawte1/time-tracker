@@ -2,9 +2,16 @@ import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { User } from "../models/User";
+import { Organization } from "../models/Organization";
+import { Membership, MembershipRole } from "../models/Membership";
 import { signToken } from "../utils/jwt";
 import { sendPasswordResetEmail } from "../utils/email";
 import { requireAuth, AuthRequest } from "../middleware/auth";
+
+async function orgSummary(organizationId: string, role: MembershipRole) {
+  const org = await Organization.findById(organizationId);
+  return { organization: { id: org!._id, name: org!.name, plan: org!.plan }, role };
+}
 
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
 
@@ -33,10 +40,21 @@ router.post("/register", async (req: Request, res: Response) => {
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await User.create({ email: normalizedEmail, passwordHash, name: name.trim() });
 
-  const token = signToken({ userId: user._id.toString() });
+  const org = await Organization.create({ name: `${user.name}'s workspace`, plan: "community" });
+  await Membership.create({
+    organizationId: org._id,
+    userId: user._id,
+    email: user.email,
+    role: "owner",
+    status: "active",
+  });
+
+  const token = signToken({ userId: user._id.toString(), orgId: org._id.toString() });
   res.status(201).json({
     token,
     user: { id: user._id, email: user.email, name: user.name },
+    organization: { id: org._id, name: org.name, plan: org.plan },
+    role: "owner",
   });
 });
 
@@ -56,10 +74,16 @@ router.post("/login", async (req: Request, res: Response) => {
     return res.status(401).json({ error: "Invalid email or password" });
   }
 
-  const token = signToken({ userId: user._id.toString() });
+  const membership = await Membership.findOne({ userId: user._id, status: "active" });
+  if (!membership) {
+    return res.status(500).json({ error: "No active organization found for this account" });
+  }
+
+  const token = signToken({ userId: user._id.toString(), orgId: membership.organizationId.toString() });
   res.json({
     token,
     user: { id: user._id, email: user.email, name: user.name },
+    ...(await orgSummary(membership.organizationId.toString(), membership.role)),
   });
 });
 
@@ -125,7 +149,10 @@ router.get("/me", requireAuth, async (req: AuthRequest, res: Response) => {
   if (!user) {
     return res.status(404).json({ error: "User not found" });
   }
-  res.json({ user: { id: user._id, email: user.email, name: user.name } });
+  res.json({
+    user: { id: user._id, email: user.email, name: user.name },
+    ...(await orgSummary(req.orgId!, req.orgRole!)),
+  });
 });
 
 export default router;

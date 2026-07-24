@@ -4,6 +4,22 @@ export interface User {
   name: string;
 }
 
+export type OrgPlan = "community" | "business";
+export type OrgRole = "owner" | "member";
+
+export interface Organization {
+  id: string;
+  name: string;
+  plan: OrgPlan;
+}
+
+export interface TeamMember {
+  id: string;
+  email: string;
+  role: OrgRole;
+  status: "active" | "invited";
+}
+
 export interface Project {
   _id: string;
   name: string;

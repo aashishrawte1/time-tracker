@@ -3,6 +3,8 @@ import { api, ApiError } from "../api/client";
 import type { Project, TimeEntry } from "../types";
 import { formatHoursMinutes } from "../utils/format";
 import { ChevronLeftIcon, ChevronRightIcon, ClockIcon, PlusIcon, TrashIcon } from "../components/icons";
+import { PageHeader } from "../components/PageHeader";
+import { Skeleton } from "../components/Skeleton";
 
 function projectLabel(entry: TimeEntry, projects: Project[]): { name: string; color: string } {
   if (typeof entry.projectId === "object") {
@@ -130,7 +132,7 @@ function GapRow({
         <button
           onClick={() => setOpen(true)}
           disabled={projects.length === 0}
-          className="flex shrink-0 items-center gap-1 rounded-full border border-dashed border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:border-indigo-300 hover:bg-white hover:text-slate-700 disabled:opacity-50 dark:border-slate-700 dark:text-slate-400 dark:hover:border-indigo-700 dark:hover:bg-slate-900 dark:hover:text-slate-200"
+          className="flex shrink-0 items-center gap-1 rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:border-indigo-300 hover:bg-white hover:text-slate-700 disabled:opacity-50 dark:border-slate-700 dark:text-slate-400 dark:hover:border-indigo-700 dark:hover:bg-slate-900 dark:hover:text-slate-200"
         >
           <PlusIcon className="h-3.5 w-3.5" />
           Log this time
@@ -200,7 +202,7 @@ function GapRow({
         <button
           type="submit"
           disabled={submitting || !projectId}
-          className="mt-2 rounded-full bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-50"
+          className="mt-2 rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-50"
         >
           {submitting ? "Saving..." : "Save entry"}
         </button>
@@ -314,7 +316,7 @@ function EntryRow({
               {formatTime(start)} – {end ? formatTime(end) : "now"}
             </span>
             <span
-              className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+              className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                 entry.source === "timer"
                   ? "bg-indigo-100 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300"
                   : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
@@ -396,33 +398,35 @@ export function Timesheet() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold text-slate-900 dark:text-white">Timesheet</h1>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setDate((d) => shiftDate(d, -1))}
-            aria-label="Previous day"
-            className="flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            <ChevronLeftIcon className="h-3.5 w-3.5" />
-            Prev
-          </button>
-          <button
-            onClick={() => setDate(toDateInput(new Date()))}
-            className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Today
-          </button>
-          <button
-            onClick={() => setDate((d) => shiftDate(d, 1))}
-            aria-label="Next day"
-            className="flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Next
-            <ChevronRightIcon className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Timesheet"
+        actions={
+          <>
+            <button
+              onClick={() => setDate((d) => shiftDate(d, -1))}
+              aria-label="Previous day"
+              className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              <ChevronLeftIcon className="h-3.5 w-3.5" />
+              Prev
+            </button>
+            <button
+              onClick={() => setDate(toDateInput(new Date()))}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Today
+            </button>
+            <button
+              onClick={() => setDate((d) => shiftDate(d, 1))}
+              aria-label="Next day"
+              className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Next
+              <ChevronRightIcon className="h-3.5 w-3.5" />
+            </button>
+          </>
+        }
+      />
 
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
@@ -431,11 +435,14 @@ export function Timesheet() {
       )}
 
       {loading ? (
-        <p className="text-sm text-slate-400 dark:text-slate-500">Loading...</p>
+        <div className="space-y-3">
+          <Skeleton className="h-16" />
+          <Skeleton className="h-24" />
+        </div>
       ) : projects.length === 0 ? (
         <p className="text-sm text-slate-400 dark:text-slate-500">Create a project before logging time.</p>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card dark:border-slate-800 dark:bg-slate-900">
+        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-card dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
             <p className="text-sm text-slate-500 dark:text-slate-400">
               {dayStart.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
